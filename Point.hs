@@ -1,5 +1,5 @@
 -- NB: Borrowed from my own project, GeoLabel
-{-# LANGUAGE TypeFamilies, Strict #-}
+{-# LANGUAGE TypeFamilies, Strict, DeriveFunctor #-}
 module Point (
     V3(..), (<+>), (<->), (<.>), (<%>), scaleBy, kick, unit, lengthOf, x, y, z,
     Point,
@@ -11,7 +11,7 @@ import Prelude () -- Don't import anything from standard prelude
 import Numeric.Units.Dimensional.Prelude hiding (length)
 
 -- | A vector of three things.
-data V3 a = V3 a a a deriving Show
+data V3 a = V3 a a a deriving (Show, Functor)
 -- | A vector in R³.
 type Point = V3 (Length Double)
 -- | A bivector for R³.
