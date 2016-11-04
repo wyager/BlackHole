@@ -7,17 +7,15 @@ module Point (
     Direction
 ) where
 
-import Prelude () -- Don't import anything from standard prelude
-import Numeric.Units.Dimensional.Prelude hiding (length)
 
 -- | A vector of three things.
 data V3 a = V3 a a a deriving (Show, Functor)
 -- | A vector in R³.
-type Point = V3 (Length Double)
+type Point = V3 Double
 -- | A bivector for R³.
 -- Turns out cross products are super weird. 
 -- https://en.wikipedia.org/wiki/Exterior_algebra
-type Bivector = V3 (Area Double)
+type Bivector = V3 Double
 
 type Direction = Point
 
@@ -30,16 +28,16 @@ type Direction = Point
 -- | Cross Product
 (V3 a b c) <%> (V3 x y z) = V3 (b*z - c*y) (c*x - a*z) (a*y - b*x)
 
-x :: Point -> Length Double
+x :: Point -> Double
 x (V3 x y z) = x
 
-y :: Point -> Length Double
+y :: Point -> Double
 y (V3 x y z) = y
 
-z :: Point -> Length Double
+z :: Point -> Double
 z (V3 x y z) = z
 
-scaleBy :: Dimensionless Double -> Point -> Point
+scaleBy :: Double -> Point -> Point
 scaleBy s (V3 a b c) = V3 (s * a) (s * b) (s * c)
 
 kick :: Point -> Point -> Point
@@ -48,10 +46,10 @@ kick point destination = point <+> delta
     delta = small (destination <-> point)
 
 small :: Point -> Point
-small vector = scaleBy (0.01 *~ one) (unit vector) -- 1 centimeter
+small vector = scaleBy (0.01) (unit vector) -- 1 centimeter
 
 unit :: Point -> Point
-unit vector = scaleBy (1.0 *~ meter / lengthOf vector) vector
+unit vector = scaleBy (1.0 / lengthOf vector) vector
 
-lengthOf :: Point -> Length Double
+lengthOf :: Point -> Double
 lengthOf vector = sqrt (vector <.> vector)
