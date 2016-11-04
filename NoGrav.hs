@@ -16,27 +16,29 @@ data Config = Config {
     celestialRadius :: Double
 }
 
-trace :: Config -> Point -> Direction -> Collision
-trace (Config scale bhr ar cr) start direction = go start
+trace :: Config -> Point -> Direction -> (Collision, Int)
+trace (Config scale bhr ar cr) start direction = go start 0 
     where
     direction' = scaleBy (scale / lengthOf direction) direction 
-    go start 
-        | accretion = Accretion
-        | blackhole = BlackHole
-        | celestial = Celestial
-        | otherwise = go end
+    go start n
+        | accretion = (Accretion, n)
+        | blackhole = (BlackHole, n)
+        | celestial = (Celestial, n)
+        | otherwise = go end (n+1)
         where
         accretion = (y start > 0) /= (y end > 0) && (start <.> start) < (ar * ar)
         blackhole = (end <.> end) < (bhr * bhr) -- Not quite right. Can "clip through" BH
         celestial = (end <.> end) > (cr  * cr )
         end = start <+> direction'
 
-ray :: Double -> Double -> Pic.PixelRGB8
-ray x y = case coll of
-    Accretion -> Pic.PixelRGB8 0xFF 0 0
-    BlackHole -> Pic.PixelRGB8 0 0xFF 0
-    Celestial -> Pic.PixelRGB8 0 0 0xFF
+ray :: Double -> Double -> (Pic.PixelRGB8, Int)
+ray x y = (pixel, count)
     where
+    count = snd coll
+    pixel = case fst coll of
+        Accretion -> Pic.PixelRGB8 0xFF 0 0
+        BlackHole -> Pic.PixelRGB8 0 0xFF 0
+        Celestial -> Pic.PixelRGB8 0 0 0xFF
     config = Config {
             scale           = 1  * 1e3,
             blackHoleRadius = 10 * 1e3,
@@ -52,17 +54,20 @@ ray x y = case coll of
     screenPoint = direction <+> (scaleBy x right) <+> (scaleBy y up)
     coll = trace config camera screenPoint
 
-pixel :: Int -> Int -> Int -> Int -> Pic.PixelRGB8
-pixel h w x y = ray (xf * fov) (yf * fov)
+pixel :: Int -> Int -> Int -> Int -> Int -> (Int, Pic.PixelRGB8)
+pixel h w acc x y = (acc + count, pixel)
     where
+    (pixel, count) = ray (xf * fov) (yf * fov)
     fov = 1 / 6
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / w'
     yf = (y' - h'/2) / h'
 
 
-image = Pic.generateImage (pixel h w) h w
+(steps, image) = Pic.generateFoldImage (pixel h w) 0 h w
     where
     (h,w) = (300,300)
 
-main = Png.writePng "out.png" image
+main = do
+    Png.writePng "out.png" image
+    putStrLn $ "Steps: " ++ show steps
