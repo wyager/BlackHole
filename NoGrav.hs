@@ -38,10 +38,10 @@ ray x y = case coll of
     Celestial -> Pic.PixelRGB8 0 0 0xFF
     where
     config = Config {
-            scale           = 1   * 1e3,
-            blackHoleRadius = 10  * 1e3,
-            accretionRadius = 100 * 1e3,
-            celestialRadius = 1   * 1e6
+            scale           = 1  * 1e3,
+            blackHoleRadius = 10 * 1e3,
+            accretionRadius = 30 * 1e3,
+            celestialRadius = 1  * 1e6
         } 
     camera = V3 0 (100 * 1e3) (500 * 1e3)
     direction = unit (scaleBy (negate 1) camera)
@@ -55,7 +55,7 @@ ray x y = case coll of
 pixel :: Int -> Int -> Int -> Int -> Pic.PixelRGB8
 pixel h w x y = ray (xf * fov) (yf * fov)
     where
-    fov = 1 / 4
+    fov = 1 / 6
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / w'
     yf = (y' - h'/2) / h'
@@ -63,6 +63,6 @@ pixel h w x y = ray (xf * fov) (yf * fov)
 
 image = Pic.generateImage (pixel h w) h w
     where
-    (h,w) = (1000,1000)
+    (h,w) = (300,300)
 
 main = Png.writePng "out.png" image
