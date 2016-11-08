@@ -9,12 +9,15 @@ import qualified XYZ
 import qualified XY
 import Data.Array.Repa ((:.)((:.)), (!), Z(Z))
 import qualified Data.Array.Repa as Repa
-import Data.Array.Repa.Repr.Vector (V)
+import qualified Data.Array.Repa.Eval as Eval
+import Data.Array.Repa.Repr.Vector as Vec
 import qualified Control.Monad.Identity as Identity
+import qualified Data.Colour.RGBSpace as RGB
+import qualified Data.Colour.RGBSpace.HSV as HSV
 import Data.Word (Word64)
 
 data Collision = Accretion Point
-               | BlackHole Point
+               | BlackHole
                | Celestial Point
 
 data Config = Config {
@@ -29,13 +32,37 @@ trace (Config scale bhr ar cr) start direction = go start 0
     where
     direction' = scaleBy (scale / lengthOf direction) direction 
     go start n
-        | accretion = (Accretion end, n)
-        | blackhole = (BlackHole end, n)
+        | Just isect <- accretion = (Accretion isect, n)
+        | blackhole = (BlackHole, n)
         | celestial = (Celestial end, n)
         | otherwise = go end (n+1)
         where
-        accretion = (y start > 0) /= (y end > 0) && (start <.> start) < (ar * ar)
-        blackhole = (end <.> end) < (bhr * bhr) -- Not quite right. Can "clip through" BH
+        -- Finds the point in the middle that hits the disk (y = 0)
+        accretion 
+            | (y start > 0) == (y end > 0) = Nothing -- Do we cross the disk plane?
+            | crossSquared < (ar * ar) && crossSquared > (bhr * bhr) = Just accretionCross -- Is the crossing within the disk's radius?
+            | otherwise = Nothing
+            where
+                -- Parallel to disk?
+                accretionCross = if -1e-5 < distance && distance < 1e-5
+                    then scaleBy 0.5 start <+> scaleBy 0.5 end
+                    else scaleBy c_start start <+> scaleBy c_end end
+                crossSquared = accretionCross <.> accretionCross
+                y_start = y start
+                y_end = y end
+                distance = y_start - y_end
+                c_start = abs (y_end / distance)
+                c_end = 1 - c_start
+        blackhole
+            | lengthOf start > (bhr + scale) = False
+            | (end <.> end) < (bhr * bhr) = True 
+            | closestSquared < (bhr * bhr) = True
+            | otherwise = False
+            where
+            sq v = v <.> v
+            numerator = sq start * (scale ^ 2) - ((start <.> (end <-> start))^2)
+            denominator = scale ^ 2
+            closestSquared =  numerator /  denominator
         celestial = (end <.> end) > (cr  * cr )
         end = start <+> direction'
 
@@ -50,18 +77,25 @@ point2xyz pt = XYZ.XYZ x y z
 noiseWith :: Int -> Point -> Double
 noiseWith seed = Perlin.perlin (XYZ.noise seed) (+) (*) XYZ.weight 4 . point2xyz
 
-stars :: Point -> Double
-stars pt = if noise < 0.6 then 0 else sigmoid noise
+stars :: Point -> Pic.PixelRGB8
+stars pt = Pic.PixelRGB8 pixelVal pixelVal pixelVal
     where 
+    pixelVal = round $ 255 * brightness
+    brightness = if noise < 0.70 then 0 else sigmoid noise
     seed = 0x1337
-    noise = noiseWith seed $ fmap (/3e2) pt
+    noise = noiseWith seed $ fmap (/1e2) pt
     sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8)))
 
-accretion :: Point -> Double
-accretion pt = noise
+accretion :: Config -> Point -> Pic.PixelRGB8
+accretion config pt@(V3 x y z) = RGB.uncurryRGB Pic.PixelRGB8 rgb
     where
-    seed = 0xBEEF
-    noise = noiseWith seed $ fmap (/1e2) pt
+    l = (lengthOf pt - blackHoleRadius config) / (accretionRadius config - blackHoleRadius config)
+    rgb = fmap (round . (*255)) $ HSV.hsv (30-l*30) 1 (0.8 + oscillation)
+    noiseY = noiseWith 0xBEEF $ fmap (/1e2) pt
+    noiseX = noiseWith 0xCAFE $ fmap (/1e2) pt
+    scrambled = V3 (x + noiseX*1000) (y + noiseY*1000) z
+    oscillation = (0.2*) $ sin $ (/400) $ lengthOf scrambled
+
 
 
 ray :: Double -> Double -> (Pic.PixelRGB8, Int)
@@ -69,12 +103,9 @@ ray x y = (pixel, count)
     where
     count = snd coll
     pixel = case fst coll of
-        Accretion pt -> Pic.PixelRGB8 brightness brightness 0
-            where
-            brightness = round (255 * accretion pt)
-        BlackHole pt -> Pic.PixelRGB8 0 0xFF 0
-        Celestial pt -> Pic.PixelRGB8 brightness brightness brightness
-            where brightness = round (255 * stars pt)
+        Accretion pt -> accretion config pt
+        BlackHole    -> Pic.PixelRGB8 0 0 0
+        Celestial pt -> stars pt
     config = Config {
             scale           = 1  * 1e3,
             blackHoleRadius = 10 * 1e3,
@@ -94,25 +125,29 @@ pixel :: Int -> Int -> Int -> Int -> (Int, Pic.PixelRGB8)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 1 / 6
+    fov = 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
-    xf = (x' - w'/2) / w'
+    xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
 
-pixels :: Int -> Int -> (Int, Repa.Array V (Z :. Int :. Int) Pic.PixelRGB8)
-pixels w h = (steps, pixels)
+pixels :: Int -> Int -> (Int, Repa.Array Vec.V (Z :. Int :. Int) Pic.PixelRGB8)
+pixels w h = Identity.runIdentity $ do
+    output <- Vec.computeVectorP image
+    count  <- Repa.foldAllP (+) 0 $ Repa.map fst output 
+    pixels <- Vec.computeVectorP $ Repa.map snd output
+    return $! (count, pixels)
     where
     image = Repa.fromFunction (Z :. w :. h) 
           $ \(Z :. x :. y) -> pixel w h x y
-    result :: Repa.Array V (Z :. Int :. Int) (Int, Pic.PixelRGB8)
-    result = Identity.runIdentity $ Repa.computeP image
-    pixels = Identity.runIdentity $ Repa.computeP $ Repa.map snd result
-    steps = Identity.runIdentity $ Repa.foldAllP (+) 0 $ Repa.map fst result
+    -- result :: Repa.Array V (Z :. Int :. Int) (Int, Pic.PixelRGB8)
+    -- result = Identity.runIdentity $ Repa.computeP image
+    -- pixels = Identity.runIdentity $ Repa.computeP $  -- result
+    -- steps = 0 -- Identity.runIdentity $ Repa.foldAllP (+) 0 $ Repa.map fst result
 
 
 
-w = 300
-h = 300
+w = 4000
+h = 2000
 (steps, array) = pixels w h
 image = Pic.generateImage (\x y -> array ! (Z :. x :. y)) w h
 
