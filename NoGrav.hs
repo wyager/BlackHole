@@ -4,10 +4,12 @@ import Point
 
 import qualified Codec.Picture as Pic
 import qualified Codec.Picture.Png as Png
+import qualified PerlinG as Perlin
+import qualified XYZ
 
-data Collision = Accretion
-               | BlackHole
-               | Celestial
+data Collision = Accretion Point
+               | BlackHole Point
+               | Celestial Point
 
 data Config = Config {
     scale :: Double,
@@ -21,9 +23,9 @@ trace (Config scale bhr ar cr) start direction = go start 0
     where
     direction' = scaleBy (scale / lengthOf direction) direction 
     go start n
-        | accretion = (Accretion, n)
-        | blackhole = (BlackHole, n)
-        | celestial = (Celestial, n)
+        | accretion = (Accretion end, n)
+        | blackhole = (BlackHole end, n)
+        | celestial = (Celestial end, n)
         | otherwise = go end (n+1)
         where
         accretion = (y start > 0) /= (y end > 0) && (start <.> start) < (ar * ar)
@@ -31,14 +33,28 @@ trace (Config scale bhr ar cr) start direction = go start 0
         celestial = (end <.> end) > (cr  * cr )
         end = start <+> direction'
 
+point2xyz :: Point -> XYZ.XYZ
+point2xyz (V3 x y z) = XYZ.XYZ x' y' z'
+    where (x',y',z') = (round x, round y, round z)
+
+stars :: Point -> Double
+stars pt = if noise < 0.6 then 0 else sigmoid noise
+    where 
+    seed = 0x1337
+    xyz = point2xyz pt
+    noise = Perlin.perlin (XYZ.noise seed) (+) (*) XYZ.weight 4 xyz
+    sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8))) -- NB: Perlin hash function is bad. Fix.
+
+
 ray :: Double -> Double -> (Pic.PixelRGB8, Int)
 ray x y = (pixel, count)
     where
     count = snd coll
     pixel = case fst coll of
-        Accretion -> Pic.PixelRGB8 0xFF 0 0
-        BlackHole -> Pic.PixelRGB8 0 0xFF 0
-        Celestial -> Pic.PixelRGB8 0 0 0xFF
+        Accretion _ -> Pic.PixelRGB8 0xFF 0 0
+        BlackHole _ -> Pic.PixelRGB8 0 0xFF 0
+        Celestial pt -> Pic.PixelRGB8 brightness brightness brightness
+            where brightness = round (255 * stars pt)
     config = Config {
             scale           = 1  * 1e3,
             blackHoleRadius = 10 * 1e3,
