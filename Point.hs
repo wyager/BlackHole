@@ -7,9 +7,14 @@ module Point (
     Direction
 ) where
 
+import Control.DeepSeq (NFData, rnf)
 
 -- | A vector of three things.
 data V3 a = V3 a a a deriving (Show, Functor)
+
+instance NFData a => NFData (V3 a) where
+    rnf (V3 a b c) = rnf a `seq` rnf b `seq` rnf c
+
 -- | A vector in R³.
 type Point = V3 Double
 -- | A bivector for R³.

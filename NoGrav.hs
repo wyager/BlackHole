@@ -143,7 +143,9 @@ pixels :: Int -> Int -> (Int, Vec.Vector (Vec.Vector Pic.PixelRGB8))
 pixels w h = (count, pixels)
     where
     map2 f = Vec.map (Vec.map f)
-    results = Vec.generate w $ \x -> Vec.generate h $ \y -> pixel w h x y
+    results = Strat.using 
+        (Vec.generate w $ \x -> Vec.generate h $ \y -> pixel w h x y)
+        (Strat.parVector 16) -- Generate 16 columns at a time in parallel
     counts = map2 fst results
     count = Vec.sum (Vec.map Vec.sum counts)
     colors = map2 snd results
