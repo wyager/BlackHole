@@ -1,5 +1,5 @@
 -- NB: Borrowed from my own project, GeoLabel
-{-# LANGUAGE TypeFamilies, DeriveFunctor #-}
+{-# LANGUAGE TypeFamilies, DeriveFunctor, BangPatterns #-}
 module Point (
     V3(..), (<+>), (<->), (<.>), (<%>), scaleBy, kick, unit, lengthOf, x, y, z,
     Point,
@@ -10,7 +10,7 @@ module Point (
 import Control.DeepSeq (NFData, rnf)
 
 -- | A vector of three things.
-data V3 a = V3 a a a deriving (Show, Functor)
+data V3 a = V3 !a !a !a deriving (Show, Functor)
 
 instance NFData a => NFData (V3 a) where
     rnf (V3 a b c) = rnf a `seq` rnf b `seq` rnf c

@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeOperators, BangPatterns #-}
 module Main (main) where
 import Point
 
@@ -31,7 +31,7 @@ trace :: Config -> Point -> Direction -> (Color, Int)
 trace cfg@(Config scale bhr ar cr) start direction = go 1 (V3 0 0 0) start 0 
     where
     direction' = unit direction 
-    go opacity color start n
+    go !opacity !color !start !n
         | opacity <= 0.01 = (color, n)
         | Just isect <- accretionI = go (opacity * 0.6) (color <+> accretionColor cfg isect) end (n+1)
         | Just isect <- blackholeI = (color <+> blackholeColor isect, n)

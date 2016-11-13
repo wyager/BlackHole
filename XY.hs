@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings #-}
+{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings, BangPatterns #-}
 
 module XY where
 
@@ -9,7 +9,7 @@ import Data.ByteString (ByteString)
 import Data.Hashable (Hashable, hash, hashWithSalt)
 
 
-data XY = XY {x :: Word64, y :: Word64} deriving Show
+data XY = XY {x :: !Word64, y :: !Word64} deriving Show
 
 right (XY x y) = XY (x+1) y
 down (XY x y) = XY x (y+1)

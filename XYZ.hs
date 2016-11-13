@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings, DeriveFunctor #-}
+{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings, DeriveFunctor, BangPatterns #-}
 
 module XYZ where
 
@@ -11,7 +11,7 @@ import Crypto.MAC.SipHash (SipKey(..), SipHash(..), hash)
 import Data.Word (Word64)
 
 
-data XYZ = XYZ {x :: Word64, y :: Word64, z :: Word64} deriving Show
+data XYZ = XYZ {x :: !Word64, y :: !Word64, z :: !Word64} deriving Show
 
 data Eight a = Eight a a a a a a a a deriving (Show, Functor)
 

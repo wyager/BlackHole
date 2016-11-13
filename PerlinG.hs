@@ -1,9 +1,9 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, ScopedTypeVariables, BangPatterns #-}
 module PerlinG where
 
 import Data.Vector as V
 
-data Coord point space = Coord {macro :: point, micro :: point, ratio :: space}
+data Coord point space = Coord {macro :: !point, micro :: !point, ratio :: !space}
 
 
 class Perlin point space | point -> space where
