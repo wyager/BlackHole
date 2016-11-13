@@ -1,5 +1,5 @@
 -- NB: Borrowed from my own project, GeoLabel
-{-# LANGUAGE TypeFamilies, Strict, DeriveFunctor #-}
+{-# LANGUAGE TypeFamilies, DeriveFunctor #-}
 module Point (
     V3(..), (<+>), (<->), (<.>), (<%>), scaleBy, kick, unit, lengthOf, x, y, z,
     Point,

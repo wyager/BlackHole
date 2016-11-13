@@ -1,4 +1,4 @@
-{-# LANGUAGE Strict, MultiParamTypeClasses, OverloadedStrings, DeriveFunctor #-}
+{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings, DeriveFunctor #-}
 
 module XYZ where
 

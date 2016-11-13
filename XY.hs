@@ -1,4 +1,4 @@
-{-# LANGUAGE Strict, MultiParamTypeClasses, OverloadedStrings #-}
+{-# LANGUAGE MultiParamTypeClasses, OverloadedStrings #-}
 
 module XY where
 

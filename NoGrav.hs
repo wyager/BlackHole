@@ -1,4 +1,4 @@
-{-# LANGUAGE Strict, TypeOperators #-}
+{-# LANGUAGE TypeOperators #-}
 module Main (main) where
 import Point
 
@@ -157,8 +157,8 @@ pixels w h = (count, pixels)
     pixels = map2 (\(V3 r g b) -> Pic.PixelRGB8 r g b) word8s
 
 
-w = 400
-h = 200
+w = 100
+h = 50
 (steps, array) = pixels w h
 image = Pic.generateImage (\x y -> (array Vec.! x) Vec.! y) w h
 

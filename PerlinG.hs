@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, ScopedTypeVariables, Strict #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, ScopedTypeVariables #-}
 module PerlinG where
 
 import Data.Vector as V
