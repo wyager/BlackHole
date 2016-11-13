@@ -17,7 +17,7 @@ import qualified Data.Colour.RGBSpace.HSV as HSV
 import Data.Word (Word64)
 
 data Collision = Accretion Point
-               | BlackHole
+               | BlackHole Point
                | Celestial Point
 
 data Config = Config {
@@ -30,10 +30,10 @@ data Config = Config {
 trace :: Config -> Point -> Direction -> (Collision, Int)
 trace (Config scale bhr ar cr) start direction = go start 0 
     where
-    direction' = scaleBy (scale / lengthOf direction) direction 
+    direction' = unit direction 
     go start n
         | Just isect <- accretion = (Accretion isect, n)
-        | blackhole = (BlackHole, n)
+        | Just isect <- blackhole = (BlackHole isect, n)
         | celestial = (Celestial end, n)
         | otherwise = go end (n+1)
         where
@@ -54,17 +54,25 @@ trace (Config scale bhr ar cr) start direction = go start 0
                 c_start = abs (y_end / distance)
                 c_end = 1 - c_start
         blackhole
-            | lengthOf start > (bhr + scale) = False
-            | (end <.> end) < (bhr * bhr) = True 
-            | closestSquared < (bhr * bhr) = True
-            | otherwise = False
+            | startDistance > (bhr + adjustedScale) = Nothing -- No way Jose
+            | (start <.> start) < (bhr * bhr) = Just start -- We inside 
+            | closestSquared < (bhr * bhr) = Just start -- Inside at some point
+            | otherwise = Nothing -- Nearby, but not inside
             where
+            sq :: Point -> Double
             sq v = v <.> v
-            numerator = sq start * (scale ^ 2) - ((start <.> (end <-> start))^2)
-            denominator = scale ^ 2
+            numerator :: Double
+            numerator = sq start * (adjustedScale ^ 2) - ((start <.> (end <-> start))^2)
+            denominator :: Double
+            denominator = adjustedScale ^ 2
+            closestSquared :: Double
             closestSquared =  numerator /  denominator
         celestial = (end <.> end) > (cr  * cr )
-        end = start <+> direction'
+        end = start <+> (scaleBy adjustedScale direction')
+        startDistance = lengthOf start
+        -- Dynamically decrease scale near black hole
+        adjustedScale :: Double
+        adjustedScale = (1000*) $ (1/) $ (+1) $ exp $ negate $ subtract 3 $ (/bhr) $ startDistance
 
 
 point2xyz :: Point -> XYZ.XYZ
@@ -96,7 +104,12 @@ accretion config pt@(V3 x y z) = RGB.uncurryRGB Pic.PixelRGB8 rgb
     scrambled = V3 (x + noiseX*1000) (y + noiseY*1000) z
     oscillation = (0.2*) $ sin $ (/400) $ lengthOf scrambled
 
-
+blackhole :: Point -> Pic.PixelRGB8
+blackhole pt@(V3 x y z) = Pic.PixelRGB8 b b b
+    where
+    phi   = atan2 x z
+    theta = atan2 x y
+    b = round $ (*255) $ (/2) $ (1+) $ sin $ (/1e3) $ x + y + z
 
 ray :: Double -> Double -> (Pic.PixelRGB8, Int)
 ray x y = (pixel, count)
@@ -104,7 +117,7 @@ ray x y = (pixel, count)
     count = snd coll
     pixel = case fst coll of
         Accretion pt -> accretion config pt
-        BlackHole    -> Pic.PixelRGB8 0 0 0
+        BlackHole pt -> blackhole pt
         Celestial pt -> stars pt
     config = Config {
             scale           = 1  * 1e3,
@@ -146,8 +159,8 @@ pixels w h = Identity.runIdentity $ do
 
 
 
-w = 4000
-h = 2000
+w = 400
+h = 200
 (steps, array) = pixels w h
 image = Pic.generateImage (\x y -> array ! (Z :. x :. y)) w h
 
