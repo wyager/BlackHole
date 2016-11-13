@@ -72,9 +72,12 @@ trace cfg@(Config scale bhr ar cr) start direction = go 1 (V3 0 0 0) start 0
         celestial = (end <.> end) > (cr  * cr )
         end = start <+> (scaleBy adjustedScale direction')
         startDistance = lengthOf start
-        -- Dynamically decrease scale near black hole
+        -- Dynamically decrease scale near black hole.
+        -- You can graph the sigmoid curve to get a feel for what it's doing.
+        sa :: Double
+        sa = 10 -- Scaling aggressiveness factor
         adjustedScale :: Double
-        adjustedScale = (1000*) $ (1/) $ (+1) $ exp $ negate $ subtract 3 $ (/bhr) $ startDistance
+        adjustedScale = (1000*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ (1+) $ negate $ (/bhr) $ startDistance
 
 
 point2xyz :: Point -> XYZ.XYZ
@@ -134,7 +137,7 @@ pixel :: Int -> Int -> Int -> Int -> (Int, Color)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 1/20 -- 1 / 12
+    fov = 1/48 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
@@ -157,8 +160,8 @@ pixels w h = (count, pixels)
     pixels = map2 (\(V3 r g b) -> Pic.PixelRGB8 r g b) word8s
 
 
-w = 100
-h = 50
+w = 200
+h = 100
 (steps, array) = pixels w h
 image = Pic.generateImage (\x y -> (array Vec.! x) Vec.! y) w h
 
