@@ -76,8 +76,12 @@ trace cfg@(Config scale bhr ar cr) start direction = go 1 (V3 0 0 0) start 0
         -- You can graph the sigmoid curve to get a feel for what it's doing.
         sa :: Double
         sa = 10 -- Scaling aggressiveness factor
+        blackholeScale :: Double
+        blackholeScale = (1000*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ (1+) $ negate $ (/bhr) $ startDistance
+        accretionScale :: Double
+        accretionScale = (1000*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ negate $ (/bhr) $ abs $ y start
         adjustedScale :: Double
-        adjustedScale = (1000*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ (1+) $ negate $ (/bhr) $ startDistance
+        adjustedScale = min blackholeScale accretionScale
 
 
 point2xyz :: Point -> XYZ.XYZ
@@ -106,7 +110,9 @@ accretionColor config pt@(V3 x y z) = RGB.uncurryRGB V3 rgb
     noiseY = noiseWith 0xBEEF $ fmap (/1e2) pt
     noiseX = noiseWith 0xCAFE $ fmap (/1e2) pt
     scrambled = V3 (x + noiseX*1000) (y + noiseY*1000) z
-    oscillation = (0.2*) $ sin $ (/400) $ lengthOf scrambled
+    r = lengthOf pt
+    oscillation = (0.2*) $ sin $ ((r/200)+) $ (2*pi*) $ atan2 x z
+    -- oscillation = (0.2*) $ sin $ (/400) $ lengthOf scrambled
 
 blackholeColor :: Point -> Color
 blackholeColor pt@(V3 x y z) = V3 b b b
@@ -137,7 +143,7 @@ pixel :: Int -> Int -> Int -> Int -> (Int, Color)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 1/48 -- 1 / 12
+    fov = 1/20 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
