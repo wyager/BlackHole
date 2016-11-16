@@ -14,9 +14,26 @@ import qualified Data.Colour.RGBSpace.HSV as HSV
 import qualified Data.Vector.Strategies as Strat
 import Data.Word (Word64)
 
-data Collision = Accretion Point
-               | BlackHole Point
-               | Celestial Point
+data Light = Light {
+    opacity :: !Double,
+    r :: !Double,
+    g :: !Double,
+    b :: !Double }
+
+plus :: Light -> Light -> Light
+plus !(Light oi ri gi bi) !(Light on rn gn bn) = Light o' r' g' b'
+    where
+    o' = oi * on
+    r' = ri + (rn*oi)
+    g' = gi + (gn*oi)
+    b' = bi + (bn*oi)
+
+scaleLight :: Double -> Light -> Light
+scaleLight l (Light o r g b) = Light (1-(l*(1-o))) (r*l) (g*l) (b*l)
+
+toColor :: Light -> Color
+toColor (Light o r g b) = V3 r g b
+
 
 type Color = V3 Double
 
@@ -24,42 +41,48 @@ data Config = Config {
     scale :: Double,
     blackHoleRadius :: Double,
     accretionRadius :: Double,
-    celestialRadius :: Double
+    celestialRadius :: Double,
+    accretionWidth :: Double -- Falls off as exp(-(h/width)^2)
 }
 
 trace :: Config -> Point -> Direction -> (Color, Int)
-trace cfg@(Config scale bhr ar cr) start direction = go 1 (V3 0 0 0) start 0 
+trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) start 0 
     where
+    accretionLimit = acrw * 3
     direction' = unit direction 
-    go !opacity !color !start !n
-        | opacity <= 0.01 = (color, n)
-        | Just isect <- accretionI = go (opacity * 0.6) (color <+> accretionColor cfg isect) end (n+1)
-        | Just isect <- blackholeI = (color <+> blackholeColor isect, n)
-        | celestial = (color <+> celestialColor end, n)
-        | otherwise = go opacity color end (n+1)
+    go !light !start !n
+        | opacity light <= 0.01 = (toColor light, n)
+        -- | Just isect <- accretionI = go (opacity * 0.6) (color <+> accretionColor cfg isect) end (n+1)
+        | blackhole = (toColor (light' `plus` blackholeLight start), n)
+        | celestial = (toColor (light' `plus` celestialLight end), n)
+        | otherwise = go light' end (n+1)
         where
+        light'
+            | abs (y start) > accretionLimit = light -- y too big
+            | startDistance > ar = light -- r too big
+            | otherwise = light `plus` accretionLight cfg start adjustedScale
         -- Finds the point in the middle that hits the disk (y = 0)
-        accretionI 
-            | (y start > 0) == (y end > 0) = Nothing -- Do we cross the disk plane?
-            | crossSquared < (ar * ar) && crossSquared > (bhr * bhr) = Just accretionCross -- Is the crossing within the disk's radius?
-            | otherwise = Nothing
-            where
-                -- Parallel to disk?
-                accretionCross = if -1e-5 < distance && distance < 1e-5
-                    then scaleBy 0.5 start <+> scaleBy 0.5 end
-                    else scaleBy c_start start <+> scaleBy c_end end
-                crossSquared = accretionCross <.> accretionCross
-                y_start = y start
-                y_end = y end
-                distance = y_start - y_end
-                c_start = abs (y_end / distance)
-                c_end = 1 - c_start
+        -- accretionI 
+        --     | (y start > 0) == (y end > 0) = Nothing -- Do we cross the disk plane?
+        --     | crossSquared < (ar * ar) && crossSquared > (bhr * bhr) = Just accretionCross -- Is the crossing within the disk's radius?
+        --     | otherwise = Nothing
+        --     where
+        --         -- Parallel to disk?
+        --         accretionCross = if -1e-5 < distance && distance < 1e-5
+        --             then scaleBy 0.5 start <+> scaleBy 0.5 end
+        --             else scaleBy c_start start <+> scaleBy c_end end
+        --         crossSquared = accretionCross <.> accretionCross
+        --         y_start = y start
+        --         y_end = y end
+        --         distance = y_start - y_end
+        --         c_start = abs (y_end / distance)
+        --         c_end = 1 - c_start
         -- Does the ray hit the black hole?
-        blackholeI
-            | startDistance > (bhr + adjustedScale) = Nothing -- No way Jose
-            | (start <.> start) < (bhr * bhr) = Just start -- We inside 
-            | closestSquared < (bhr * bhr) = Just start -- Inside at some point
-            | otherwise = Nothing -- Nearby, but not inside
+        blackhole
+            | startDistance > (bhr + adjustedScale) = False -- No way Jose
+            | (start <.> start) < (bhr * bhr) = True -- We inside 
+            | closestSquared < (bhr * bhr) = True -- Inside at some point
+            | otherwise = False -- Nearby, but not inside
             where
             sq :: Point -> Double
             sq v = v <.> v
@@ -77,9 +100,9 @@ trace cfg@(Config scale bhr ar cr) start direction = go 1 (V3 0 0 0) start 0
         sa :: Double
         sa = 10 -- Scaling aggressiveness factor
         blackholeScale :: Double
-        blackholeScale = (1000*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ (1+) $ negate $ (/bhr) $ startDistance
+        blackholeScale = (scale*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ (1+) $ negate $ (/bhr) $ startDistance
         accretionScale :: Double
-        accretionScale = (1000*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ negate $ (/bhr) $ abs $ y start
+        accretionScale = (scale*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ negate $ (/5) $ (/acrw) $ abs $ y start
         adjustedScale :: Double
         adjustedScale = min blackholeScale accretionScale
 
@@ -94,17 +117,18 @@ point2xyz pt = XYZ.XYZ x y z
 noiseWith :: Int -> Point -> Double
 noiseWith seed = Perlin.perlin (XYZ.noise seed) (+) (*) XYZ.weight 4 . point2xyz
 
-celestialColor :: Point -> Color
-celestialColor pt = V3 brightness brightness brightness
+celestialLight :: Point -> Light
+celestialLight pt = Light 0 brightness brightness brightness
     where 
     brightness = if noise < 0.70 then 0 else sigmoid noise
     seed = 0x1337
     noise = noiseWith seed $ fmap (/1e2) pt
     sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8)))
 
-accretionColor :: Config -> Point -> Color
-accretionColor config pt@(V3 x y z) = RGB.uncurryRGB V3 rgb
+accretionLight :: Config -> Point -> Double -> Light
+accretionLight config pt@(V3 x y z) len = scaleLight (len / accretionWidth config) rawLight
     where
+    rawLight = RGB.uncurryRGB (Light 0.8) rgb
     l = (lengthOf pt - blackHoleRadius config) / (accretionRadius config - blackHoleRadius config)
     rgb = HSV.hsv (30-l*30) 1 (0.8 + oscillation)
     noiseY = noiseWith 0xBEEF $ fmap (/1e2) pt
@@ -114,8 +138,8 @@ accretionColor config pt@(V3 x y z) = RGB.uncurryRGB V3 rgb
     oscillation = (0.2*) $ sin $ ((r/200)+) $ (2*pi*) $ atan2 x z
     -- oscillation = (0.2*) $ sin $ (/400) $ lengthOf scrambled
 
-blackholeColor :: Point -> Color
-blackholeColor pt@(V3 x y z) = V3 b b b
+blackholeLight :: Point -> Light
+blackholeLight pt@(V3 x y z) = Light 0 b b b
     where
     phi   = atan2 x z
     theta = atan2 x y
@@ -128,7 +152,8 @@ ray x y = (color, count)
             scale           = 1  * 1e3,
             blackHoleRadius = 10 * 1e3,
             accretionRadius = 30 * 1e3,
-            celestialRadius = 1  * 1e6
+            celestialRadius = 1  * 1e6,
+            accretionWidth  = 1  * 1e2
         } 
     camera = V3 0 (100 * 1e3) (500 * 1e3)
     direction = unit (scaleBy (negate 1) camera)
