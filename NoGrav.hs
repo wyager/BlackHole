@@ -127,16 +127,19 @@ celestialLight pt = Light 0 brightness brightness brightness
     sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8)))
 
 accretionLight :: Config -> Point -> Double -> Light
-accretionLight config pt@(V3 x y z) len = scaleLight (len / accretionWidth config) rawLight
+accretionLight config pt@(V3 x y z) len = scaleLight (falloff * len / accretionWidth config) rawLight
     where
+    w = y / width
+    falloff = exp $ negate $ w * w
     rawLight = RGB.uncurryRGB (Light 0.8) rgb
     l = (lengthOf pt - blackHoleRadius config) / (accretionRadius config - blackHoleRadius config)
-    rgb = HSV.hsv (30-l*30) 1 (0.8 + oscillation)
-    noiseY = noiseWith 0xBEEF $ fmap (/1e2) pt
-    noiseX = noiseWith 0xCAFE $ fmap (/1e2) pt
-    scrambled = V3 (x + noiseX*1000) (y + noiseY*1000) z
+    rgb = HSV.hsv (30-l*30) 1 1 -- (0.8 + oscillation)
+    -- noiseY = noiseWith 0xBEEF $ fmap (/1e2) pt
+    -- noiseX = noiseWith 0xCAFE $ fmap (/1e2) pt
+    -- scrambled = V3 (x + noiseX*1000) (y + noiseY*1000) z
     r = lengthOf pt
-    oscillation = (0.2*) $ sin $ ((r/200)+) $ (2*pi*) $ atan2 x z
+    oscillation = (0.4*) $ sin $ ((r/200)+) $ (2*pi*) $ atan2 x z
+    width = (oscillation + 0.6) * accretionWidth config
     -- oscillation = (0.2*) $ sin $ (/400) $ lengthOf scrambled
 
 blackholeLight :: Point -> Light
