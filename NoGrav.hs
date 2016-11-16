@@ -103,7 +103,7 @@ trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) sta
         blackholeScale :: Double
         blackholeScale = (scale*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ (1+) $ negate $ (/bhr) $ startDistance
         accretionScale :: Double
-        accretionScale = (scale*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ negate $ (/10) $ (/acrw) $ abs $ y start
+        accretionScale = (scale*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ negate $ (/20) $ (/acrw) $ abs $ y start
         adjustedScale :: Double
         adjustedScale = min blackholeScale accretionScale
 
