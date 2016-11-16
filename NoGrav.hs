@@ -13,6 +13,7 @@ import qualified Data.Colour.RGBSpace as RGB
 import qualified Data.Colour.RGBSpace.HSV as HSV
 import qualified Data.Vector.Strategies as Strat
 import Data.Word (Word64)
+import System.Environment (getArgs)
 
 data Light = Light {
     opacity :: !Double,
@@ -102,7 +103,7 @@ trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) sta
         blackholeScale :: Double
         blackholeScale = (scale*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ (1+) $ negate $ (/bhr) $ startDistance
         accretionScale :: Double
-        accretionScale = (scale*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ negate $ (/5) $ (/acrw) $ abs $ y start
+        accretionScale = (scale*) $ (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ negate $ (/10) $ (/acrw) $ abs $ y start
         adjustedScale :: Double
         adjustedScale = min blackholeScale accretionScale
 
@@ -193,11 +194,17 @@ pixels w h = (count, pixels)
 
 w = 200
 h = 100
-(steps, array) = pixels w h
-image = Pic.generateImage (\x y -> (array Vec.! x) Vec.! y) w h
+
+
 
 
 main = do
+    args <- getArgs
+    let (w,h) = case args of
+            [w,h] -> (read w, read h)
+            _ -> (200,100)
+    let (steps, array) = pixels w h
+    let image = Pic.generateImage (\x y -> (array Vec.! x) Vec.! y) w h
     Png.writePng "out.png" image
     putStrLn $ "Steps: " ++ show steps
 
