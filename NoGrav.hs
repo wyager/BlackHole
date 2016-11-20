@@ -141,7 +141,7 @@ accretionLight config pt@(V3 x y z) len = scaleLight (farFalloff * nearFalloff *
     -- scrambled = V3 (x + noiseX*1000) (y + noiseY*1000) z
     r = lengthOf pt
     oscillation = (0.4*) $ sin $ (+ noise) $ ((r/200)+) $ (2*pi*) $ atan2 x z
-    width = ((oscillation + 0.6) * accretionWidth config)^2
+    width = ((oscillation + 0.6)^2) * accretionWidth config
     -- oscillation = (0.2*) $ sin $ (/400) $ lengthOf scrambled
 
 blackholeLight :: Point -> Light
