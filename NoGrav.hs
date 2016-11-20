@@ -116,7 +116,7 @@ point2xyz pt = XYZ.XYZ x y z
 
 
 noiseWith :: Int -> Point -> Double
-noiseWith seed = Perlin.perlin (XYZ.noise seed) (+) (*) XYZ.weight 4 . point2xyz
+noiseWith seed = Perlin.perlin (XYZ.noise seed) (+) (*) XYZ.weight 5 . point2xyz
 
 celestialLight :: Point -> Light
 celestialLight pt = Light 0 brightness brightness brightness
@@ -137,7 +137,7 @@ accretionLight config pt@(V3 x y z) len = Light 0 noise noise noise -- scaleLigh
     l = (lengthOf pt - blackHoleRadius config) / (accretionRadius config - blackHoleRadius config)
     rgb = HSV.hsv (50-l*30) 1 1
     -- noiseY = noiseWith 0xBEEF $ fmap (/1e2) pt
-    noise = (8*) $ noiseWith 0xCAFE $ fmap (/5) pt
+    noise = (8*) $ noiseWith 0xCAFE $ fmap (/50) pt
     -- scrambled = V3 (x + noiseX*1000) (y + noiseY*1000) z
     r = lengthOf pt
     oscillation = (0.4*) $ sin $ (+ noise) $ ((r/200)+) $ (2*pi*) $ atan2 x z
