@@ -127,7 +127,7 @@ celestialLight pt = Light 0 brightness brightness brightness
     sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8)))
 
 accretionLight :: Config -> Point -> Double -> Light
-accretionLight config pt@(V3 x y z) len = scaleLight (farFalloff * nearFalloff * widthFalloff * len / accretionWidth config) rawLight
+accretionLight config pt@(V3 x y z) len = Light 0 noise noise noise -- scaleLight (farFalloff * nearFalloff * widthFalloff * len / accretionWidth config) rawLight
     where
     w = y / width
     farFalloff = (1/) $ (1+) $ exp $ (*10) $ (subtract 0.8) $ (/ accretionRadius config) $ r
