@@ -117,7 +117,9 @@ trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0
         adjustedStep :: Double
         adjustedStep = min blackholeStep accretionStep / lengthOf direction -- Account for closeness to objects and the accrued psuedo-velocity
         adjustedScale :: Double
-        adjustedScale = scale * adjustedStep
+        adjustedScale = if startDistance > 150 * bhr
+            then 10 -- Gotta go fast
+            else scale * adjustedStep
         direction' :: V3 Double
         direction' = direction <+> scaleBy adjustedScale acceleration -- Apparently we shouldn't renormalize
         acceleration :: V3 Double
@@ -173,7 +175,7 @@ ray x y = (color, count)
     config = Config {
             scale           = 0.1,
             accretionRadius = 3,
-            celestialRadius = 200,
+            celestialRadius = 2000,
             accretionWidth  = 0.01
         } 
     camera = V3 0 20 100
