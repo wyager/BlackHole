@@ -53,7 +53,7 @@ bhr = 1.0
 bhr² :: Double
 bhr² = 1.0
 
-trace :: Config -> Point -> Direction -> (Color, Int)
+trace :: Config -> Point -> Direction -> (Color, Double)
 trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0 dir
     where
     dir = unit direction
@@ -66,7 +66,7 @@ trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0
         -- | Just isect <- accretionI = go (opacity * 0.6) (color <+> accretionColor cfg isect) end (n+1)
         | blackhole = (toColor (light' `plus` blackholeLight start), n)
         | celestial = (toColor (light' `plus` celestialLight end), n)
-        | otherwise = go light' end (n+1) direction'
+        | otherwise = go light' end (if n > lengthOf direction then n else lengthOf direction) direction'
         where
         light'
             | abs (y start) > accretionLimit = light -- y too big
@@ -115,7 +115,7 @@ trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0
         accretionStep :: Double
         accretionStep = (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ negate $ (/20) $ (/acrw) $ abs $ y start
         adjustedStep :: Double
-        adjustedStep = min blackholeStep accretionStep
+        adjustedStep = min blackholeStep accretionStep / lengthOf direction -- Account for closeness to objects and the accrued psuedo-velocity
         adjustedScale :: Double
         adjustedScale = scale * adjustedStep
         direction' :: V3 Double
@@ -137,7 +137,7 @@ noiseWith seed = Perlin.perlin (XYZ.noise seed) (+) (*) XYZ.weight 5 . point2xyz
 celestialLight :: Point -> Light
 celestialLight pt = Light 0 brightness brightness brightness
     where 
-    brightness = if noise < 0.70 then 0 else sigmoid noise
+    brightness = if noise < 0.70 then 0 else 4 * sigmoid noise
     seed = 0x1337
     noise = noiseWith seed $ fmap (*100) pt
     sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8)))
@@ -167,7 +167,7 @@ blackholeLight pt@(V3 x y z) = Light 0 b b b
     theta = atan2 x y
     b = (/2) $ (1+) $ sin $ (*10) $ x + y + z
 
-ray :: Double -> Double -> (Color, Int)
+ray :: Double -> Double -> (Color, Double)
 ray x y = (color, count)
     where
     config = Config {
@@ -176,7 +176,7 @@ ray x y = (color, count)
             celestialRadius = 200,
             accretionWidth  = 0.01
         } 
-    camera = V3 0 10 50
+    camera = V3 0 20 100
     direction = unit (scaleBy (negate 1) camera)
     right :: Point
     right = V3 (1) 0 0
@@ -185,7 +185,7 @@ ray x y = (color, count)
     screenPoint = direction <+> (scaleBy x right) <+> (scaleBy y up)
     (color, count) = trace config camera screenPoint
 
-pixel :: Int -> Int -> Int -> Int -> (Int, Color)
+pixel :: Int -> Int -> Int -> Int -> (Double, Color)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
@@ -194,7 +194,7 @@ pixel w h x y = (count, pixel)
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
 
-pixels :: Int -> Int -> (Int, Vec.Vector (Vec.Vector Pic.PixelRGB8))
+pixels :: Int -> Int -> (Double, Vec.Vector (Vec.Vector Pic.PixelRGB8))
 pixels w h = (count, pixels)
     where
     map2 f = Vec.map (Vec.map f)
@@ -202,7 +202,7 @@ pixels w h = (count, pixels)
         (Vec.generate w $ \x -> Vec.generate h $ \y -> pixel w h x y)
         (Strat.parVector 16) -- Generate 16 columns at a time in parallel
     counts = map2 fst results
-    count = Vec.sum (Vec.map Vec.sum counts)
+    count = Vec.maximum (Vec.map Vec.maximum counts)
     colors = map2 snd results
     amplitude (V3 r g b) = max r (max g b)
     amplitudes = map2 amplitude colors 
@@ -226,6 +226,6 @@ main = do
     let (steps, array) = pixels w h
     let image = Pic.generateImage (\x y -> (array Vec.! x) Vec.! y) w h
     Png.writePng "out.png" image
-    putStrLn $ "Steps: " ++ show steps
+    putStrLn $ "Max len: " ++ show steps
 
 
