@@ -139,7 +139,7 @@ celestialLight pt = Light 0 brightness brightness brightness
     where 
     brightness = if noise < 0.70 then 0 else 4 * sigmoid noise
     seed = 0x1337
-    noise = noiseWith seed $ fmap (*100) pt
+    noise = noiseWith seed $ fmap (*1) pt -- *100
     sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8)))
 
 accretionLight :: Config -> Point -> Double -> Light
@@ -189,7 +189,7 @@ pixel :: Int -> Int -> Int -> Int -> (Double, Color)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 1/10 -- 1 / 12
+    fov = 1/8 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
