@@ -119,12 +119,9 @@ trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0
         adjustedScale :: Double
         adjustedScale = scale * adjustedStep
         direction' :: V3 Double
-        direction' = direction
+        direction' = direction <+> scaleBy adjustedScale acceleration -- Apparently we shouldn't renormalize
         acceleration :: V3 Double
-        acceleration = accel
-            where
-            accel = scaleBy (1/falloff) (scaleBy (-(3/2) * h²) end)
-            falloff = (end <.> end) ** 2.5
+        acceleration = scaleBy (-1.5 * h² / ((end <.> end) ** 2.5)) end
 
 
 point2xyz :: Point -> XYZ.XYZ
@@ -192,7 +189,7 @@ pixel :: Int -> Int -> Int -> Int -> (Int, Color)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 1/20 -- 1 / 12
+    fov = 1/10 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
