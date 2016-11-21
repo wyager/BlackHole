@@ -188,7 +188,7 @@ pixel :: Int -> Int -> Int -> Int -> (Int, Color)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 1/2 -- 1 / 12
+    fov = 1/8 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
