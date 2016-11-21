@@ -113,11 +113,11 @@ trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) sta
         adjustedScale :: Double
         adjustedScale = scale * adjustedStep
         direction' :: V3 Double
-        direction' = unit (direction <+> (scaleBy adjustedStep acceleration))
+        direction' = unit (direction <+> (scaleBy (1 / bhr) acceleration))
         acceleration :: V3 Double
         acceleration = accel
             where
-            accel = scaleBy (1/falloff) (scaleBy (-1.5 * h²) (unit end))
+            accel = scaleBy (1/falloff) (scaleBy (-(18/2) * h²) schwarEnd)
             schwarEnd = scaleBy (1/bhr) end
             falloff = (schwarEnd <.> schwarEnd) ** 2.5
 
@@ -188,7 +188,7 @@ pixel :: Int -> Int -> Int -> Int -> (Int, Color)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 1/8 -- 1 / 12
+    fov = 1/20 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
