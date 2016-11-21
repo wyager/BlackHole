@@ -117,7 +117,7 @@ trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0
         adjustedStep :: Double
         adjustedStep = min blackholeStep accretionStep / lengthOf direction -- Account for closeness to objects and the accrued psuedo-velocity
         adjustedScale :: Double
-        adjustedScale = if startDistance > 150 * bhr
+        adjustedScale = if startDistance > 220 * bhr
             then 10 -- Gotta go fast
             else scale * adjustedStep
         direction' :: V3 Double
@@ -178,7 +178,7 @@ ray x y = (color, count)
             celestialRadius = 2000,
             accretionWidth  = 0.01
         } 
-    camera = V3 0 20 100
+    camera = V3 0 40 200
     direction = unit (scaleBy (negate 1) camera)
     right :: Point
     right = V3 (1) 0 0
@@ -191,7 +191,7 @@ pixel :: Int -> Int -> Int -> Int -> (Double, Color)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 1/3 -- 1 / 12
+    fov = 1/6 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
