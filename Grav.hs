@@ -113,7 +113,7 @@ trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) sta
         adjustedScale :: Double
         adjustedScale = scale * adjustedStep
         direction' :: V3 Double
-        direction' = unit (direction <+> (scaleBy (1 / scale) acceleration))
+        direction' = unit (direction <+> (scaleBy (adjustedStep / scale) acceleration))
         acceleration :: V3 Double
         acceleration = accel
             where
