@@ -52,7 +52,7 @@ trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) sta
     where
     dir = unit direction
     -- Looks like this is constant. Weird.
-    h = (start <%> dir)
+    h = ((scaleBy (1/bhr) start) <%> dir)
     h² = h <.> h
     accretionLimit = acrw * 3
     go !light !start !n !direction
@@ -115,7 +115,7 @@ trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) sta
         direction' :: V3 Double
         direction' = unit (direction <+> (scaleBy adjustedStep acceleration))
         acceleration :: V3 Double
-        acceleration = Debug.trace ("acceleration: " ++ show accel) $ accel
+        acceleration = accel
             where
             accel = scaleBy (1/falloff) (scaleBy (-1.5 * h²) (unit end))
             schwarEnd = scaleBy (1/bhr) end
@@ -188,7 +188,7 @@ pixel :: Int -> Int -> Int -> Int -> (Int, Color)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 1/20 -- 1 / 12
+    fov = 1/2 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'

@@ -47,20 +47,31 @@ data Config = Config {
     accretionWidth :: Double -- Falls off as exp(-(h/width)^2)
 }
 
-trace :: Config -> Point -> Direction -> (Color, Int)
+trace :: Config -> Point -> Direction -> IO (Color, Int)
 trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) start 0 dir
     where
     dir = unit direction
     -- Looks like this is constant. Weird.
-    h = (start <%> dir)
+    h = ((scaleBy (1/bhr) start) <%> dir)
     h² = h <.> h
     accretionLimit = acrw * 3
     go !light !start !n !direction
-        | opacity light <= 0.01 = (toColor light, n)
+        | opacity light <= 0.01 = return (toColor light, n)
         -- | Just isect <- accretionI = go (opacity * 0.6) (color <+> accretionColor cfg isect) end (n+1)
-        | blackhole = (toColor (light' `plus` blackholeLight start), n)
-        | celestial = (toColor (light' `plus` celestialLight end), n)
-        | otherwise = go light' end (n+1) direction'
+        | blackhole = return (toColor (light' `plus` blackholeLight start), n)
+        | celestial = return (toColor (light' `plus` celestialLight end), n)
+        | otherwise = do
+            putStrLn "=============="
+            let schwarEnd = scaleBy (1/bhr) end
+            let falloff = (schwarEnd <.> schwarEnd) ** 2.5
+            let accel = scaleBy (1/falloff) (scaleBy (-1.5 * h²) (unit end))
+            putStrLn $ ("h²: " ++)           $ show $ h²
+            putStrLn $ ("schwarEnd: " ++)    $ show $ schwarEnd
+            putStrLn $ ("falloff: " ++)      $ show $ falloff
+            putStrLn $ ("start: " ++)        $ show $ start
+            putStrLn $ ("direction: " ++)    $ show $ direction
+            putStrLn $ ("acceleration: " ++) $ show $ accel
+            go light' end (n+1) direction'
         where
         light'
             | abs (y start) > accretionLimit = light -- y too big
@@ -113,13 +124,14 @@ trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) sta
         adjustedScale :: Double
         adjustedScale = scale * adjustedStep
         direction' :: V3 Double
-        direction' = unit (direction <+> (scaleBy adjustedStep acceleration))
+        direction' = unit (direction <+> V3 0 0 0) -- (scaleBy adjustedStep acceleration))
         acceleration :: V3 Double
-        acceleration = Debug.trace ("acceleration: " ++ show accel) $ accel
+        acceleration = accel
             where
             accel = scaleBy (1/falloff) (scaleBy (-1.5 * h²) (unit end))
             schwarEnd = scaleBy (1/bhr) end
             falloff = (schwarEnd <.> schwarEnd) ** 2.5
+            
 
 
 point2xyz :: Point -> XYZ.XYZ
@@ -165,8 +177,8 @@ blackholeLight pt@(V3 x y z) = Light 0 b b b
     theta = atan2 x y
     b = (/2) $ (1+) $ sin $ (/1e3) $ x + y + z
 
-ray :: Double -> Double -> (Color, Int)
-ray x y = (color, count)
+rayIO :: Double -> Double -> IO (Color, Int)
+rayIO x y = trace config camera screenPoint
     where
     config = Config {
             scale           = 1  * 1e3,
@@ -182,33 +194,30 @@ ray x y = (color, count)
     up :: Point
     up = (direction <%> right)
     screenPoint = direction <+> (scaleBy x right) <+> (scaleBy y up)
-    (color, count) = trace config camera screenPoint
+    
 
-pixel :: Int -> Int -> Int -> Int -> (Int, Color)
-pixel w h x y = (count, pixel)
+pixel :: Int -> Int -> Int -> Int -> IO (Int, Color)
+pixel w h x y = (\(x,y) -> (y,x)) <$> rayIO (xf * fov) (yf * fov)
     where
-    (pixel, count) = ray (xf * fov) (yf * fov)
     fov = 1/20 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
 
-pixels :: Int -> Int -> (Int, Vec.Vector (Vec.Vector Pic.PixelRGB8))
-pixels w h = (count, pixels)
-    where
-    map2 f = Vec.map (Vec.map f)
-    results = Strat.using 
-        (Vec.generate w $ \x -> Vec.generate h $ \y -> pixel w h x y)
-        (Strat.parVector 16) -- Generate 16 columns at a time in parallel
-    counts = map2 fst results
-    count = Vec.sum (Vec.map Vec.sum counts)
-    colors = map2 snd results
-    amplitude (V3 r g b) = max r (max g b)
-    amplitudes = map2 amplitude colors 
-    maxAmplitude = Vec.maximum (Vec.map Vec.maximum amplitudes)
-    scaled = map2 (fmap (/maxAmplitude)) colors
-    word8s = map2 (fmap (round . (*255))) scaled
-    pixels = map2 (\(V3 r g b) -> Pic.PixelRGB8 r g b) word8s
+pixels :: Int -> Int -> IO (Int, Vec.Vector (Vec.Vector Pic.PixelRGB8))
+pixels w h = do
+    results <- Vec.generateM w $ \x -> Vec.generateM h $ \y -> pixel w h x y
+    let map2 f = Vec.map (Vec.map f)
+    let counts = map2 fst results
+    let count = Vec.sum (Vec.map Vec.sum counts)
+    let colors = map2 snd results
+    let amplitude (V3 r g b) = max r (max g b)
+    let amplitudes = map2 amplitude colors 
+    let maxAmplitude = Vec.maximum (Vec.map Vec.maximum amplitudes)
+    let scaled = map2 (fmap (/maxAmplitude)) colors
+    let word8s = map2 (fmap (round . (*255))) scaled
+    let pixels = map2 (\(V3 r g b) -> Pic.PixelRGB8 r g b) word8s
+    return (count, pixels)
 
 
 w = 200
@@ -222,7 +231,7 @@ main = do
     let (w,h) = case args of
             [w,h] -> (read w, read h)
             _ -> (200,100)
-    let (steps, array) = pixels w h
+    (steps, array) <- pixels w h
     let image = Pic.generateImage (\x y -> (array Vec.! x) Vec.! y) w h
     Png.writePng "out.png" image
     putStrLn $ "Steps: " ++ show steps
