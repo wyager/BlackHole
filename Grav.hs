@@ -139,7 +139,7 @@ noiseWith seed = Perlin.perlin (XYZ.noise seed) (+) (*) XYZ.weight 5 . point2xyz
 celestialLight :: Point -> Light
 celestialLight pt = Light 0 brightness brightness brightness
     where 
-    brightness = noise * 2  -- if noise < 0.70 then 0 else 4 * sigmoid noise
+    brightness = if noise < 0.70 then 0 else 4 * sigmoid noise
     seed = 0x1337
     noise = noiseWith seed $ fmap (*1) pt -- *100
     sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8)))

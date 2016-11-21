@@ -6,7 +6,8 @@ import Data.Word (Word64)
 import Data.Bits ((.&.), shiftL, shiftR)
 import PerlinG
 import Data.ByteString (ByteString)
-import Data.Hashable (Hashable, hash, hashWithSalt)
+-- import Data.Hashable (Hashable, hash, hashWithSalt)
+import Crypto.MAC.SipHash (SipKey(..), SipHash(..), hash)
 
 
 data XY = XY {x :: !Word64, y :: !Word64} deriving Show
@@ -18,11 +19,17 @@ weight :: XY -> Word64 -> Double
 weight (XY x y) space = fromIntegral x * fromIntegral y / ((fromIntegral space)^2)
 
 noise :: Int -> Int -> XY -> Double
-noise s n (XY x y) = 0.5 +  0.5 * fromIntegral w / fromIntegral (maxBound :: Int)
+noise s n (XY x y) = fromIntegral h3 / fromIntegral (maxBound :: Word64)
     where
-    f :: Hashable a => a -> Int -> Int
-    f = flip hashWithSalt
-    w = f ("ca$h" :: ByteString) $ f x $ f y $ f s $ f n $ 0x1337
+    f = fromIntegral 
+    SipHash h1 = hash (SipKey x y) "a"
+    SipHash h2 = hash (SipKey (f s) (f n)) "b"
+    SipHash h3 = hash (SipKey h1 h2) "c"
+    -- 0.5 +  0.5 * fromIntegral w / fromIntegral (maxBound :: Int)
+    -- where
+    -- f :: Hashable a => a -> Int -> Int
+    -- f = flip hashWithSalt
+    -- w = f ("ca$h" :: ByteString) $ f x $ f y $ f s $ f n $ 0x1337
 
 instance Perlin XY Word64 where
     {-# INLINE grid #-}
