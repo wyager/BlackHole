@@ -139,7 +139,7 @@ noiseWith seed = Perlin.perlin (XYZ.noise seed) (+) (*) XYZ.weight 5 . point2xyz
 celestialLight :: Point -> Light
 celestialLight pt = Light 0 brightness brightness brightness
     where 
-    brightness = if noise < 0.70 then 0 else 4 * sigmoid noise
+    brightness = noise * 2  -- if noise < 0.70 then 0 else 4 * sigmoid noise
     seed = 0x1337
     noise = noiseWith seed $ fmap (*1) pt -- *100
     sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8)))
@@ -155,7 +155,7 @@ accretionLight config pt@(V3 x y z) len = scaleLight (farFalloff * nearFalloff *
     l = (lengthOf pt - bhr) / (accretionRadius config - bhr)
     rgb = HSV.hsv (50-l*30) 1 1
     -- noiseY = noiseWith 0xBEEF $ fmap (/1e2) pt
-    noise = (4*) $ noiseWith 0xCAFE $ fmap (200*) pt
+    noise = 0 -- (4*) $ noiseWith 0xCAFE $ fmap (200*) pt
     -- scrambled = V3 (x + noiseX*1000) (y + noiseY*1000) z
     r = lengthOf pt
     oscillation = (0.4*) $ (^3) $ sin $ (+ noise) $ ((50*r)+) $ (2*pi*) $ atan2 x z
@@ -174,7 +174,7 @@ ray x y = (color, count)
     where
     config = Config {
             scale           = 0.1,
-            accretionRadius = 3,
+            accretionRadius = 5,
             celestialRadius = 2000,
             accretionWidth  = 0.01
         } 
@@ -191,7 +191,7 @@ pixel :: Int -> Int -> Int -> Int -> (Double, Color)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 1/8 -- 1 / 12
+    fov = 1/12 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
