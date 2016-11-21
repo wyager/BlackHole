@@ -41,18 +41,24 @@ type Color = V3 Double
 
 data Config = Config {
     scale :: Double,
-    blackHoleRadius :: Double,
     accretionRadius :: Double,
     celestialRadius :: Double,
     accretionWidth :: Double -- Falls off as exp(-(h/width)^2)
 }
 
+-- Black hole radius
+bhr :: Double
+bhr = 1.0
+
+bhr² :: Double
+bhr² = 1.0
+
 trace :: Config -> Point -> Direction -> (Color, Int)
-trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) start 0 dir
+trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0 dir
     where
     dir = unit direction
     -- Looks like this is constant. Weird.
-    h = ((scaleBy (1/bhr) start) <%> dir)
+    h = start <%> dir
     h² = h <.> h
     accretionLimit = acrw * 3
     go !light !start !n !direction
@@ -85,8 +91,8 @@ trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) sta
         -- Does the ray hit the black hole?
         blackhole
             | startDistance > (bhr + adjustedScale) = False -- No way Jose
-            | (start <.> start) < (bhr * bhr) = True -- We inside 
-            | closestSquared < (bhr * bhr) = True -- Inside at some point
+            | (start <.> start) < bhr² = True -- We inside 
+            | closestSquared < bhr² = True -- Inside at some point
             | otherwise = False -- Nearby, but not inside
             where
             sq :: Point -> Double
@@ -105,7 +111,7 @@ trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) sta
         sa :: Double
         sa = 10 -- Scaling aggressiveness factor
         blackholeStep :: Double
-        blackholeStep = (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ (1+) $ negate $ (/bhr) $ startDistance
+        blackholeStep = (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ (1+) $ negate $ startDistance
         accretionStep :: Double
         accretionStep = (1/) $ (+1) $ exp $ (*sa) $ ((4/sa)+) $ negate $ (/20) $ (/acrw) $ abs $ y start
         adjustedStep :: Double
@@ -117,9 +123,8 @@ trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) sta
         acceleration :: V3 Double
         acceleration = accel
             where
-            accel = scaleBy (1/falloff) (scaleBy (-(3/2) * h²) schwarEnd)
-            schwarEnd = scaleBy (1/bhr) end
-            falloff = (schwarEnd <.> schwarEnd) ** 2.5
+            accel = scaleBy (1/falloff) (scaleBy (-(3/2) * h²) end)
+            falloff = (end <.> end) ** 2.5
 
 
 point2xyz :: Point -> XYZ.XYZ
@@ -137,7 +142,7 @@ celestialLight pt = Light 0 brightness brightness brightness
     where 
     brightness = if noise < 0.70 then 0 else sigmoid noise
     seed = 0x1337
-    noise = noiseWith seed $ fmap (/1e2) pt
+    noise = noiseWith seed $ fmap (*100) pt
     sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8)))
 
 accretionLight :: Config -> Point -> Double -> Light
@@ -145,16 +150,16 @@ accretionLight config pt@(V3 x y z) len = scaleLight (farFalloff * nearFalloff *
     where
     w = y / width
     farFalloff = (1/) $ (1+) $ exp $ (*10) $ (subtract 0.8) $ (/ accretionRadius config) $ r
-    nearFalloff = (1/) $ (1+) $ exp $ (*10) $ (+1.4) $ negate $ (/ blackHoleRadius config) $ r
+    nearFalloff = (1/) $ (1+) $ exp $ (*10) $ (+1.4) $ negate $ r
     widthFalloff = exp $ negate $ w * w
     rawLight = RGB.uncurryRGB (Light 0.8) rgb
-    l = (lengthOf pt - blackHoleRadius config) / (accretionRadius config - blackHoleRadius config)
+    l = (lengthOf pt - bhr) / (accretionRadius config - bhr)
     rgb = HSV.hsv (50-l*30) 1 1
     -- noiseY = noiseWith 0xBEEF $ fmap (/1e2) pt
-    noise = (4*) $ noiseWith 0xCAFE $ fmap (/50) pt
+    noise = (4*) $ noiseWith 0xCAFE $ fmap (200*) pt
     -- scrambled = V3 (x + noiseX*1000) (y + noiseY*1000) z
     r = lengthOf pt
-    oscillation = (0.4*) $ (^3) $ sin $ (+ noise) $ ((r/200)+) $ (2*pi*) $ atan2 x z
+    oscillation = (0.4*) $ (^3) $ sin $ (+ noise) $ ((50*r)+) $ (2*pi*) $ atan2 x z
     width = (oscillation + 0.6) * accretionWidth config
     -- oscillation = (0.2*) $ sin $ (/400) $ lengthOf scrambled
 
@@ -163,19 +168,18 @@ blackholeLight pt@(V3 x y z) = Light 0 b b b
     where
     phi   = atan2 x z
     theta = atan2 x y
-    b = (/2) $ (1+) $ sin $ (/1e3) $ x + y + z
+    b = (/2) $ (1+) $ sin $ (*10) $ x + y + z
 
 ray :: Double -> Double -> (Color, Int)
 ray x y = (color, count)
     where
     config = Config {
-            scale           = 1  * 1e3,
-            blackHoleRadius = 10 * 1e3,
-            accretionRadius = 30 * 1e3,
-            celestialRadius = 1  * 1e6,
-            accretionWidth  = 1  * 1e2
+            scale           = 0.1,
+            accretionRadius = 3,
+            celestialRadius = 200,
+            accretionWidth  = 0.01
         } 
-    camera = V3 0 (100 * 1e3) (500 * 1e3)
+    camera = V3 0 10 50
     direction = unit (scaleBy (negate 1) camera)
     right :: Point
     right = V3 (1) 0 0
