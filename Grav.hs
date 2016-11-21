@@ -178,7 +178,9 @@ ray x y = (color, count)
             celestialRadius = 2000,
             accretionWidth  = 0.01
         } 
-    camera = V3 0 5 25
+    camera = V3 0 5 25 
+    -- NB: Putting the camera closer to the black hole
+    -- decreases the relative angular size of the "ring" effect
     direction = unit (scaleBy (negate 1) camera)
     right :: Point
     right = V3 (1) 0 0
@@ -191,7 +193,7 @@ pixel :: Int -> Int -> Int -> Int -> (Double, Color)
 pixel w h x y = (count, pixel)
     where
     (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 4/3 -- 1 / 12
+    fov = 1 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
     xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
     yf = (y' - h'/2) / h'
