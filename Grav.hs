@@ -141,7 +141,7 @@ celestialLight pt = Light 0 brightness brightness brightness
     where 
     brightness = if noise < 0.70 then 0 else 4 * sigmoid noise
     seed = 0x1337
-    noise = noiseWith seed $ fmap (*1) pt -- *100
+    noise = noiseWith seed $ fmap (*3) pt -- *100
     sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8)))
 
 accretionLight :: Config -> Point -> Double -> Light
