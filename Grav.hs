@@ -113,11 +113,11 @@ trace cfg@(Config scale bhr ar cr acrw) start direction = go (Light 1 0 0 0) sta
         adjustedScale :: Double
         adjustedScale = scale * adjustedStep
         direction' :: V3 Double
-        direction' = unit (direction <+> (scaleBy (1 / bhr) acceleration))
+        direction' = unit (direction <+> (scaleBy ((bhr/adjustedScale) / bhr) acceleration))
         acceleration :: V3 Double
         acceleration = accel
             where
-            accel = scaleBy (1/falloff) (scaleBy (-(18/2) * h²) schwarEnd)
+            accel = scaleBy (1/falloff) (scaleBy (-(3/2) * h²) schwarEnd)
             schwarEnd = scaleBy (1/bhr) end
             falloff = (schwarEnd <.> schwarEnd) ** 2.5
 
