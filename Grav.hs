@@ -16,6 +16,9 @@ import qualified Debug.Trace as Debug
 import Data.Word (Word64)
 import System.Environment (getArgs)
 
+gravity = True
+debugTextures = False
+
 data Light = Light {
     opacity :: !Double,
     r :: !Double,
@@ -53,7 +56,7 @@ bhr = 1.0
 bhr² :: Double
 bhr² = 1.0
 
-trace :: Config -> Point -> Direction -> (Color, Double)
+trace :: Config -> Point -> Direction -> (Color)
 trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0 dir
     where
     dir = unit direction
@@ -62,10 +65,10 @@ trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0
     h² = h <.> h
     accretionLimit = acrw * 3
     go !light !start !n !direction
-        | opacity light <= 0.01 = (toColor light, n)
+        | opacity light <= 0.01 = toColor light
         -- | Just isect <- accretionI = go (opacity * 0.6) (color <+> accretionColor cfg isect) end (n+1)
-        | blackhole = (toColor (light' `plus` blackholeLight start), n)
-        | celestial = (toColor (light' `plus` celestialLight end), n)
+        | blackhole = toColor (light' `plus` blackholeLight start)
+        | celestial = toColor (light' `plus` celestialLight end)
         | otherwise = go light' end (if n > lengthOf direction then n else lengthOf direction) direction'
         where
         light'
@@ -104,7 +107,6 @@ trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0
             closestSquared :: Double
             closestSquared =  numerator /  denominator
         celestial = (end <.> end) > (cr  * cr )
-        end = start <+> (scaleBy adjustedScale direction)
         startDistance = lengthOf start
         -- Dynamically decrease scale near black hole.
         -- You can graph the sigmoid curve to get a feel for what it's doing.
@@ -120,10 +122,23 @@ trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0
         adjustedScale = if startDistance > 40 * bhr
             then 10 -- Gotta go fast
             else scale * adjustedStep
+        -- rk4
+        -- let step point scale acc = point <+> scaleBy scale acc
+        -- let end = step start (adjustedScale/6) kTotal
+        -- let kTotal = k₁ <+> scaleBy 2 k₂ <+> scaleBy 2 k₃ <+> k₄
+        -- let k₁ = accelerationAt start
+        -- let k₂ = accelerationAt (step start (adjustedScale/2) k₁)
+        -- let k₃ = accelerationAt (step start (adjustedScale/2) k₂)
+        -- let k₄ = accelerationAt (step start adjustedScale k₃)
+        -- let accelerationAt point = scaleBy (-1.5 * h² / ((point <.> point) ** 2.5)) point
+        -- leapfrog
+        end = start <+> (scaleBy adjustedScale direction)
         direction' :: V3 Double
         direction' = direction <+> scaleBy adjustedScale acceleration -- Apparently we shouldn't renormalize
         acceleration :: V3 Double
-        acceleration = scaleBy (-1.5 * h² / ((end <.> end) ** 2.5)) end
+        acceleration = if gravity
+            then scaleBy (-1.5 * h² / ((end <.> end) ** 2.5)) end
+            else V3 0 0 0
 
 
 point2xyz :: Point -> XYZ.XYZ
@@ -137,23 +152,32 @@ noiseWith :: Int -> Point -> Double
 noiseWith seed = Perlin.perlin (XYZ.noise seed) (+) (*) XYZ.weight 5 . point2xyz
 
 celestialLight :: Point -> Light
-celestialLight pt = Light 0 brightness brightness brightness
+celestialLight pt@(V3 x y z) = if debugTextures
+        then Light 0 1 0 0
+        else Light 0 brightness brightness brightness
     where 
     brightness = if noise < 0.70 then 0 else 4 * sigmoid noise
     seed = 0x1337
     noise = noiseWith seed $ fmap (*3) pt -- *100
     sigmoid v = 1 / (1 + exp (negate 30 * (v - 0.8)))
 
+parity :: Point -> Bool
+parity (V3 x y z) = even (round x + round y + round z)
+
 accretionLight :: Config -> Point -> Double -> Light
-accretionLight config pt@(V3 x y z) len = scaleLight (farFalloff * nearFalloff * widthFalloff * len / accretionWidth config) rawLight
+accretionLight config pt@(V3 x y z) len = if debugTextures
+    then if parity pt
+        then Light 0 0 0 1
+        else Light 0 0 1 0
+    else scaleLight (farFalloff * nearFalloff * widthFalloff * len / accretionWidth config) rawLight
     where
     w = y / width
-    farFalloff = (1/) $ (1+) $ exp $ (*10) $ (subtract 0.8) $ (/ accretionRadius config) $ r
-    nearFalloff = (1/) $ (1+) $ exp $ (*10) $ (+1.4) $ negate $ r
+    farFalloff = (1/) $ (1+) $ exp $ (*15) $ (subtract 0.6) $ (/ accretionRadius config) $ r
+    nearFalloff = (1/) $ (1+) $ exp $ (*10) $ (+1.7) $ negate $ r
     widthFalloff = exp $ negate $ w * w
     rawLight = RGB.uncurryRGB (Light 0.8) rgb
     l = (lengthOf pt - bhr) / (accretionRadius config - bhr)
-    rgb = HSV.hsv (50-l*30) 1 1
+    rgb = HSV.hsv (50-l*30) 0.8 1
     -- noiseY = noiseWith 0xBEEF $ fmap (/1e2) pt
     noise = (4*) $ noiseWith 0xCAFE $ fmap (200*) pt
     -- scrambled = V3 (x + noiseX*1000) (y + noiseY*1000) z
@@ -162,15 +186,19 @@ accretionLight config pt@(V3 x y z) len = scaleLight (farFalloff * nearFalloff *
     width = (oscillation + 0.6) * accretionWidth config
     -- oscillation = (0.2*) $ sin $ (/400) $ lengthOf scrambled
 
-blackholeLight :: Point -> Light
-blackholeLight pt@(V3 x y z) = Light 0 b b b
-    where
-    phi   = atan2 x z
-    theta = atan2 x y
-    b = (/2) $ (1+) $ sin $ (*10) $ x + y + z
+grid (V3 x y z) = ((sin x + sin y + sin z) + 3)/6
 
-ray :: Double -> Double -> (Color, Double)
-ray x y = (color, count)
+blackholeLight :: Point -> Light
+blackholeLight pt@(V3 x y z) = if debugTextures
+    then let c = grid (scaleBy (4*pi) pt) in Light 0 c c c
+    else Light 0 0 0 0 -- Light 0 b b b
+    -- where
+    -- phi   = atan2 x z
+    -- theta = atan2 x y
+    -- b = (/2) $ (1+) $ sin $ (*10) $ x + y + z
+
+ray :: Double -> Double -> Color
+ray x y = trace config camera screenPoint
     where
     config = Config {
             scale           = 0.1,
@@ -187,27 +215,29 @@ ray x y = (color, count)
     up :: Point
     up = (direction <%> right)
     screenPoint = direction <+> (scaleBy x right) <+> (scaleBy y up)
-    (color, count) = trace config camera screenPoint
 
-pixel :: Int -> Int -> Int -> Int -> (Double, Color)
-pixel w h x y = (count, pixel)
+pixel :: ImageRange -> Int -> Int -> Color
+pixel (ImageRange w h fov xoff yoff) x y = ray (xoff + xf * fov) (yoff + yf * fov)
     where
-    (pixel, count) = ray (xf * fov) (yf * fov)
-    fov = 1 -- 1 / 12
     [h', w', x', y'] = map (\l -> fromIntegral l) [h,w,x,y]
-    xf = (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
-    yf = (y' - h'/2) / h'
+    xf = xoff + (x' - w'/2) / h' -- We actually want these to be the same to avoid stretching
+    yf = yoff + (y' - h'/2) / h'
 
-pixels :: Int -> Int -> (Double, Vec.Vector (Vec.Vector Pic.PixelRGB8))
-pixels w h = (count, pixels)
+data ImageRange = ImageRange {
+    w :: Int,
+    h :: Int,
+    fov :: Double,
+    xoff :: Double,
+    yoff :: Double
+}
+
+pixels :: ImageRange -> Vec.Vector (Vec.Vector Pic.PixelRGB8)
+pixels range = pixels
     where
     map2 f = Vec.map (Vec.map f)
-    results = Strat.using 
-        (Vec.generate w $ \x -> Vec.generate h $ \y -> pixel w h x y)
-        (Strat.parVector 16) -- Generate 16 columns at a time in parallel
-    counts = map2 fst results
-    count = Vec.maximum (Vec.map Vec.maximum counts)
-    colors = map2 snd results
+    colors = Strat.using 
+        (Vec.generate (w range) $ \x -> Vec.generate (h range) $ \y -> pixel range x y)
+        (Strat.parVector 4) -- Generate 16 columns at a time in parallel
     amplitude (V3 r g b) = max r (max g b)
     amplitudes = map2 amplitude colors 
     maxAmplitude = Vec.maximum (Vec.map Vec.maximum amplitudes)
@@ -216,20 +246,15 @@ pixels w h = (count, pixels)
     pixels = map2 (\(V3 r g b) -> Pic.PixelRGB8 r g b) word8s
 
 
-w = 200
-h = 100
-
-
-
-
 main = do
     args <- getArgs
-    let (w,h) = case args of
-            [w,h] -> (read w, read h)
-            _ -> (200,100)
-    let (steps, array) = pixels w h
+    let (w,h,fov,xoff,yoff) = case args of
+            [w,h] -> (read w, read h, 1, 0, 0)
+            [w,h,fov] -> (read w, read h, read fov, 0, 0)
+            [w,h,fov,xoff,yoff] -> (read w, read h, read fov, read xoff, read yoff)
+            _ -> (200,100,1,0,0)
+    let array = pixels (ImageRange w h fov xoff yoff)
     let image = Pic.generateImage (\x y -> (array Vec.! x) Vec.! y) w h
     Png.writePng "out.png" image
-    putStrLn $ "Max len: " ++ show steps
 
 
