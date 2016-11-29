@@ -122,15 +122,6 @@ trace cfg@(Config scale ar cr acrw) start direction = go (Light 1 0 0 0) start 0
         adjustedScale = if startDistance > 40 * bhr
             then 10 -- Gotta go fast
             else scale * adjustedStep
-        -- rk4
-        -- let step point scale acc = point <+> scaleBy scale acc
-        -- let end = step start (adjustedScale/6) kTotal
-        -- let kTotal = k₁ <+> scaleBy 2 k₂ <+> scaleBy 2 k₃ <+> k₄
-        -- let k₁ = accelerationAt start
-        -- let k₂ = accelerationAt (step start (adjustedScale/2) k₁)
-        -- let k₃ = accelerationAt (step start (adjustedScale/2) k₂)
-        -- let k₄ = accelerationAt (step start adjustedScale k₃)
-        -- let accelerationAt point = scaleBy (-1.5 * h² / ((point <.> point) ** 2.5)) point
         -- leapfrog
         end = start <+> (scaleBy adjustedScale direction)
         direction' :: V3 Double

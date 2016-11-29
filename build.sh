@@ -5,3 +5,4 @@ $CABAL sandbox init
 $CABAL install --only-dependencies -j8
 echo "Building executable"
 $CABAL build
+cp dist/build/BlackHole/BlackHole ./BlackHole
