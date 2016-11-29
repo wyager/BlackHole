@@ -240,6 +240,12 @@ pixels range = pixels
 main = do
     args <- getArgs
     let (w,h,fov,xoff,yoff) = case args of
+            ["-h"] -> do
+                putStrLn "BlackHole options:"
+                putStrLn "./BlackHole # Runs with default options (200x200, fov=1, no offset)"
+                putStrLn "./BlackHole w h # Runs with the specified with, height. fov = 1, no offset"
+                putStrLn "./BlackHole w h fov # Runs with the specified with, height, fov. no offset"
+                putStrLn "./BlackHole w h fov xoff yoff # Runs with the specified with, height, fov, x offset, y offset"
             [w,h] -> (read w, read h, 1, 0, 0)
             [w,h,fov] -> (read w, read h, read fov, 0, 0)
             [w,h,fov,xoff,yoff] -> (read w, read h, read fov, read xoff, read yoff)

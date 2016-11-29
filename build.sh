@@ -5,4 +5,6 @@ $CABAL sandbox init
 $CABAL install --only-dependencies -j8
 echo "Building executable"
 $CABAL build
+echo "Copying to ./BlackHole"
 cp dist/build/BlackHole/BlackHole ./BlackHole
+./BlackHole -h
