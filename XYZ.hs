@@ -6,7 +6,6 @@ import Data.Word (Word64)
 import Data.Bits ((.&.), shiftL, shiftR)
 import PerlinG
 import Data.ByteString (ByteString)
--- import Data.Hashable (Hashable, hash, hashWithSalt)
 import Crypto.MAC.SipHash (SipKey(..), SipHash(..), hash)
 import Data.Word (Word64)
 
