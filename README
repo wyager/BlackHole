@@ -1,0 +1,28 @@
+Will Yager (WY2527)
+
+To compile:
+
+./build.sh
+
+This has to download and compile some packages, so it may take a while.
+
+To run:
+
+./BlackHole
+
+This will render a picture of the black hole and save it to "out.png".
+
+Program options:
+
+./BlackHole # Render 200x200, field of view=1, no xy offset
+./BlackHole width height
+./BlackHole width height fov
+./BlackHole width height fov x_offset y_offset
+
+For example:
+
+./BlackHole 500 300 0.3 0.1 0.1 # Render 500x300, field of view = 0.3, move camera to bottom right
+
+It will automatically use all available cores.
+
+If you'd like to render with debug textures or without gravity enabled, you can edit the "gravity" and "debugTextures" booleans in Grav.hs and rebuild.
