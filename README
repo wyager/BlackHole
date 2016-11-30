@@ -26,3 +26,5 @@ For example:
 It will automatically use all available cores.
 
 If you'd like to render with debug textures or without gravity enabled, you can edit the "gravity" and "debugTextures" booleans in Grav.hs and rebuild.
+
+On my honor, I have completed the online course survey.
